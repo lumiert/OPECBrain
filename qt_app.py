@@ -175,7 +175,7 @@ class HistoryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Histórico")
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self.resize(820, 460)
+        self.resize(1100, 520)
 
         # Set window icon for taskbar
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'common', 'icons', 'brain.png')
@@ -188,10 +188,17 @@ class HistoryDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["Objeto", "Subiu", "Desceu", "Pronto", "Status"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Set column widths - Objeto gets more space
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)  # Objeto stretches
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Subiu
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Desceu
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Pronto
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Status
+        self.table.setMinimumWidth(1000)
         lay.addWidget(self.table)
 
-        # Grayscale dark theme
+        # Grayscale dark theme with dark title bar
         self.setStyleSheet("""
             QDialog {
                 background-color: #1a1a1a;
@@ -234,18 +241,62 @@ class HistoryDialog(QDialog):
                 height: 0px;
             }
         """)
+        
+        # Dark title bar on Windows
+        self._set_dark_title_bar()
 
         self.load()
+
+    def _set_dark_title_bar(self):
+        try:
+            import ctypes
+            from ctypes import wintypes
+            hwnd = int(self.winId())
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(ctypes.c_int(1)),
+                ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception:
+            pass
 
     def load(self):
         data = load_history()
         self.table.setRowCount(len(data))
+        
+        # Load icons
+        icon_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'common', 'icons')
+        icon_subiu = QIcon(os.path.join(icon_dir, 'subiu.png'))
+        icon_desceu = QIcon(os.path.join(icon_dir, 'desceu.png'))
+        icon_check = QIcon(os.path.join(icon_dir, 'check.png'))
+        
         for i, entry in enumerate(data):
             self.table.setItem(i, 0, QTableWidgetItem(entry.get('objeto', '')))
-            self.table.setItem(i, 1, QTableWidgetItem(entry.get('subiu', '') or ''))
-            self.table.setItem(i, 2, QTableWidgetItem(entry.get('desceu', '') or ''))
-            self.table.setItem(i, 3, QTableWidgetItem(entry.get('pronto', '') or ''))
-            self.table.setItem(i, 4, QTableWidgetItem(entry.get('status', '')))
+            
+            # Subiu column with icon
+            subiu_item = QTableWidgetItem(entry.get('subiu', '') or '')
+
+            self.table.setItem(i, 1, subiu_item)
+            # Desceu column with icon
+            desceu_item = QTableWidgetItem(entry.get('desceu', '') or '')
+            self.table.setItem(i, 2, desceu_item)
+            
+            # Pronto column with icon
+            pronto_item = QTableWidgetItem(entry.get('pronto', '') or '')
+            self.table.setItem(i, 3, pronto_item)
+            
+            # Status column with icon
+            status = entry.get('status', '')
+            status_item = QTableWidgetItem(status)
+            if status == 'Subiu':
+                status_item.setIcon(icon_subiu)
+            elif status == 'Desceu':
+                status_item.setIcon(icon_desceu)
+            elif status == 'Pronto':
+                status_item.setIcon(icon_check)
+            self.table.setItem(i, 4, status_item)
 
 
 class TrayApp:
