@@ -1,4 +1,4 @@
-# OPEC Brain
+# OPECBrain
 
 Aplicação Python que roda na bandeja do sistema (traybar) e permite registrar rapidamente objetos com status e timestamp.
 
