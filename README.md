@@ -1,5 +1,5 @@
 # OPECBrain
-
+## [📥 Download](https://github.com/lumiert/OPECBrain/releases/tag/1.0)
 Aplicação Python que roda na bandeja do sistema (traybar) e permite registrar rapidamente objetos com status e timestamp.
 
 Como usar:
