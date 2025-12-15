@@ -1,0 +1,1 @@
+pyinstaller --noconsole --icon=brain.ico --distpath ./ --name OPECBrain  main.py
