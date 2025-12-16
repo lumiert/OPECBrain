@@ -7,10 +7,10 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QApplication, QSystemTrayIcon, QMenu, QDialog, QVBoxLayout,
     QLabel, QLineEdit, QComboBox, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QWidget, QHeaderView, QPushButton
+    QWidget, QHeaderView, QPushButton, QDateEdit
 )
 from PySide6.QtGui import QIcon, QAction, QPixmap, QPainter, QColor
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import Qt, Signal, QObject, QDate
 
 import keyboard
 
@@ -175,7 +175,7 @@ class HistoryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Histórico")
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self.resize(1100, 520)
+        self.resize(1100, 580)
 
         # Set window icon for taskbar
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'common', 'icons', 'brain.png')
@@ -184,6 +184,35 @@ class HistoryDialog(QDialog):
 
         lay = QVBoxLayout()
         self.setLayout(lay)
+
+        # Date filter row
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(10)
+        
+        filter_row.addWidget(QLabel("Data Inicial:"))
+        self.date_start = QDateEdit()
+        self.date_start.setCalendarPopup(True)
+        self.date_start.setDate(QDate.currentDate())
+        self.date_start.setDisplayFormat("dd/MM/yyyy")
+        self.date_start.setMinimumHeight(32)
+        filter_row.addWidget(self.date_start)
+        
+        filter_row.addWidget(QLabel("Data Final:"))
+        self.date_end = QDateEdit()
+        self.date_end.setCalendarPopup(True)
+        self.date_end.setDate(QDate.currentDate())
+        self.date_end.setDisplayFormat("dd/MM/yyyy")
+        self.date_end.setMinimumHeight(32)
+        filter_row.addWidget(self.date_end)
+        
+        self.btn_filter = QPushButton("Filtrar")
+        self.btn_filter.setMinimumHeight(32)
+        self.btn_filter.setMinimumWidth(80)
+        self.btn_filter.clicked.connect(self.load)
+        filter_row.addWidget(self.btn_filter)
+        
+        filter_row.addStretch()
+        lay.addLayout(filter_row)
 
         self.table = QTableWidget()
         self.table.setColumnCount(5)
@@ -202,6 +231,74 @@ class HistoryDialog(QDialog):
         self.setStyleSheet("""
             QDialog {
                 background-color: #1a1a1a;
+            }
+            QLabel {
+                color: #e0e0e0;
+                font-size: 13px;
+            }
+            QDateEdit {
+                background-color: #2a2a2a;
+                color: #e0e0e0;
+                border: 1px solid #404040;
+                border-radius: 6px;
+                padding: 6px 10px;
+                padding-right: 25px;
+                font-size: 13px;
+            }
+            QDateEdit:focus {
+                border: 1px solid #808080;
+            }
+            QDateEdit::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+                width: 20px;
+                border: none;
+                background: transparent;
+            }
+            QDateEdit::down-arrow {
+                image: url(common/icons/caret-down.png);
+                width: 12px;
+                height: 12px;
+            }
+            QPushButton {
+                background-color: #404040;
+                color: #e0e0e0;
+                border: 1px solid #505050;
+                border-radius: 6px;
+                padding: 6px 16px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #505050;
+                border: 1px solid #606060;
+            }
+            QPushButton:pressed {
+                background-color: #353535;
+            }
+            QCalendarWidget {
+                background-color: #2a2a2a;
+                color: #e0e0e0;
+            }
+            QCalendarWidget QToolButton {
+                color: #e0e0e0;
+                background-color: #2a2a2a;
+                border: none;
+                padding: 4px;
+            }
+            QCalendarWidget QMenu {
+                background-color: #2a2a2a;
+                color: #e0e0e0;
+            }
+            QCalendarWidget QSpinBox {
+                background-color: #2a2a2a;
+                color: #e0e0e0;
+                border: 1px solid #404040;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                background-color: #2a2a2a;
+                color: #e0e0e0;
+                selection-background-color: #404040;
+                selection-color: #ffffff;
             }
             QTableWidget {
                 background-color: #1a1a1a;
@@ -262,9 +359,28 @@ class HistoryDialog(QDialog):
         except Exception:
             pass
 
+    def _entry_in_date_range(self, entry, start_date: str, end_date: str) -> bool:
+        """Check if any timestamp in the entry falls within the date range."""
+        for field in ['subiu', 'desceu', 'pronto']:
+            ts = entry.get(field)
+            if ts:
+                # Extract date part (YYYY-MM-DD) from timestamp
+                entry_date = ts.split(' ')[0]
+                if start_date <= entry_date <= end_date:
+                    return True
+        return False
+
     def load(self):
         data = load_history()
-        self.table.setRowCount(len(data))
+        
+        # Get date range filter
+        start_date = self.date_start.date().toString("yyyy-MM-dd")
+        end_date = self.date_end.date().toString("yyyy-MM-dd")
+        
+        # Filter data by date range
+        filtered_data = [entry for entry in data if self._entry_in_date_range(entry, start_date, end_date)]
+        
+        self.table.setRowCount(len(filtered_data))
         
         # Load icons
         icon_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'common', 'icons')
@@ -272,7 +388,7 @@ class HistoryDialog(QDialog):
         icon_desceu = QIcon(os.path.join(icon_dir, 'desceu.png'))
         icon_check = QIcon(os.path.join(icon_dir, 'check.png'))
         
-        for i, entry in enumerate(data):
+        for i, entry in enumerate(filtered_data):
             self.table.setItem(i, 0, QTableWidgetItem(entry.get('objeto', '')))
             
             # Subiu column with icon
